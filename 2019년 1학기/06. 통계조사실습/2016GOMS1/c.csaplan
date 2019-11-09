@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<SPSSComplexSamples version="1.0">
+	<Header copyright="Copyright (c) SPSS Inc., 2006. All Rights Reserved."/>
+	<AnalysisDesign SRSestimator="wor" numberOfStages="1">
+		<AnalysisStage estimationMethod="equal_wor" stageNumber="1">
+			<StrataVarList numberOfVariables="4">
+				<Variable name="major1"/>
+				<Variable name="province1"/>
+				<Variable name="school1"/>
+				<Variable name="sex1"/>
+			</StrataVarList>
+			<IncProb>
+				<Variable name="fraction"/>
+			</IncProb>
+		</AnalysisStage>
+		<Weight>
+			<Variable name="g161wt"/>
+		</Weight>
+	</AnalysisDesign>
+</SPSSComplexSamples>

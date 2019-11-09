@@ -1,0 +1,11 @@
+ID,Patient ID number
+trt,Patient Treatment
+dr,Patient's doctor
+,,,,,   # 4줄 skip
+ID,trt,dr
+1,Placebo,Dr. A
+2,Drug,Dr. Y
+3,Placebo,Dr. K
+4,Drug,Dr. R
+5,Drug,Dr. V
+6,Placebo,Dr. O

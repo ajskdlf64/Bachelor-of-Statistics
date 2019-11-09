@@ -1,0 +1,13 @@
+   ID,      visit, PCS, MCS,     trt,    dr
+   1,   3/5/2008,  88,  71, Placebo, Dr. A
+   1,   9/7/2008,  67,  68, Placebo, Dr. A
+   2,  6/19/2008,  51,  64,    Drug, Dr. Y
+   2, 12/22/2008,  86,  56,    Drug, Dr. Y
+   3,  4/11/2008,  85,  59, Placebo, Dr. K
+   3, 10/14/2008,  67,  64, Placebo, Dr. K
+   4, 10/21/2008,  71,  86,    Drug, Dr. R
+   4,  4/25/2009,  82,  64,    Drug, Dr. R
+   5,  7/30/2008,  89,  52,    Drug, Dr. V
+   5,   2/1/2009,  72,  68,    Drug, Dr. V
+   6,  2/25/2008,  58,  78, Placebo, Dr. O
+   6,  8/29/2008,  75,  60, Placebo, Dr. O

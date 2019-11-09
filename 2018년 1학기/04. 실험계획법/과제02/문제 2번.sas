@@ -1,0 +1,20 @@
+DATA;
+DO A=1,2,3;
+DO B=1,2;
+DO i = 1,2;
+INPUT result @@;
+OUTPUT;
+END;
+END;
+END;
+CARDS;
+47 43   46 40
+62 68   67 71
+41 39   42 46 
+;
+PROC GLM;
+CLASS A B;
+MODEL result=A|B;
+OUTPUT R=resid P=yhat;
+MEANS A B / BON;
+RUN;

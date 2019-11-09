@@ -1,0 +1,218 @@
+library(forecast)
+
+# 공항 이용객
+airport <- scan("C:/Users/user/Desktop/학교수업/시계열분석/조별과제/airport.txt")
+airport.ts <- ts(airport, start=c(2002), frequency=12)
+plot(airport.ts)
+
+plot(log(airport.ts))
+
+# 시계열 그래프 그리기.
+ggtsdisplay(log(airport.ts), max=48)
+
+# 굉장한게 나옴.
+ggseasonplot(airport.ts)
+ggseasonplot(airport.ts, polar=TRUE)
+
+# 차분 차수 확인.
+ndiffs(log(airport.ts))        # 차분을 시도하고 그 결과를 확인할 필요가 있음.
+nsdiffs(log(airport.ts))
+
+# 일반차분 실시.
+airport_d_1.ts <- diff(log(airport.ts))
+ggtsdisplay(airport_d_1.ts,lag.max=48)
+
+# 계절차분 실시.
+airport_D_1.ts <- diff(log(airport.ts),lag=12)
+ggtsdisplay(airport_D_1.ts,lag.max=48)
+
+# 일반차분(d=1) 실시 후 계절차분(D=1) 실시.
+airport_d_1_D_1.ts <- diff(airport_d_1.ts,lag=12)
+ggtsdisplay(airport_d_1_D_1.ts,lag.max=48)
+
+# 모형 인식.
+Acf(airport_d_1_D_1.ts, lag=48)   
+Pacf(airport_d_1_D_1.ts, lag=48)
+
+
+# 모수 추정.
+fit <- Arima(log(airport.ts), order=c(2,1,0), seasonal=list(order=c(0,1,1), period=12))
+fit
+confint(fit)
+
+# 모형 검정(잔차분석).
+checkresiduals(fit)
+
+# 과대적합.
+fit_1 <- Arima(log(airport.ts), order=c(3,1,0), seasonal=list(order=c(0,1,1), period=12))
+confint(fit_1)          
+fit_2 <- Arima(log(airport.ts), order=c(2,1,1), seasonal=list(order=c(0,1,1), period=12))
+confint(fit_2)          
+
+# 잠정모형 : ARIMA(2,1,1)(0,1,1)[12]
+
+fit_2_1 <- Arima(log(airport.ts), order=c(3,1,1), seasonal=list(order=c(0,1,1), period=12))
+confint(fit_2_1)          
+fit_2_2 <- Arima(log(airport.ts), order=c(2,1,2), seasonal=list(order=c(0,1,1), period=12))
+confint(fit_2_2)   
+
+# 모형 검정(잔차분석).
+checkresiduals(fit_2)
+
+
+auto.arima(log(airport.ts),d=1,D=1)
+fit4 <- Arima(log(airport.ts), order=c(0,1,2), seasonal=list(order=c(2,1,2), period=12))
+confint(fit4)
+checkresiduals(fit4)
+
+fit5 <- Arima(log(airport.ts), order=c(0,1,3), seasonal=list(order=c(0,1,1), period=12))
+fit5
+checkresiduals(fit5)
+confint(fit5)
+fit5_1 <- Arima(log(airport.ts), order=c(1,1,3), seasonal=list(order=c(0,1,1), period=12),fixed=c(NA,0,NA,NA,NA))
+confint(fit5_1)
+fit5_2 <- Arima(log(airport.ts), order=c(0,1,4), seasonal=list(order=c(0,1,1), period=12),fixed=c(0,NA,NA,NA,NA))
+confint(fit5_2)
+
+fit5_1_1 <- Arima(log(airport.ts), order=c(2,1,3), seasonal=list(order=c(0,1,1), period=12),fixed=c(NA,NA,0,NA,NA,NA))
+confint(fit5_1_1)
+fit5_1_2 <- Arima(log(airport.ts), order=c(1,1,4), seasonal=list(order=c(0,1,1), period=12),fixed=c(NA,0,NA,NA,NA,NA))
+confint(fit5_1_2)
+checkresiduals(fit5_1)
+  
+# 모형 비교
+c(fit_2$aic,fit_2$bic)
+c(fit4$aic,fit4$bic)
+c(fit5_1$aic,fit5_1$bic)
+
+fit1 <- Arima(airport.ts,order=c(2,1,1),seasonal = list(order=c(0,1,1),period=12),lambda=0)
+airport17 <- scan("C:/Users/user/Desktop/학교수업/시계열분석/조별과제/airport17.txt")
+airport17 <- ts(airport17,start=2017,freq=12)
+fore_arima <- forecast(fit1,h=12,level=95)
+plot(fore_arima)
+lines(airport17,col="red")
+new_t <- seq(2017,by=1/12,length=12)
+lines(new_t,airport17,col="red")
+plot(fore_arima,xlim=c(2017,2018),ylim=c(3e+06,8e+06))
+lines(new_t,airport17,col="red",lwd=2)
+legend("topleft",c("observed Data","Forecast"),lwd=2,col=c("red","blue"),bty='n')
+accuracy(fore_arima,airport17)
+
+
+log_airport <- log(airport.ts)
+port_1 <- diff(log_airport)
+ggtsdisplay(port_1,lag.max=48)         #arima(0,1,1),arima(4,1,0) ,(1,1,1)(2,1,1)(1,1,2),(2,1,2)
+port_12 <- diff(log_airport,lag=12)
+ggtsdisplay(port_12,lag.max = 48)      #arima(2,0,0)(0,1,1) 
+port_1_12 <- diff(port_1,lag=12)
+ggtsdisplay(port_1_12,lag.max = 48)
+Acf(port_12,lag.max = 48)
+Pacf(port_12,lag.max = 48)
+
+
+fit2.1 <- Arima(log_airport,order=c(2,0,0),seasonal = list(order=c(0,1,1),period=12))
+fit2.1
+confint(fit2.1)
+checkresiduals(fit2.1)
+
+#(2,0,0)(0,1,1)에 대한 과대적합
+fit2.1.1 <- Arima(log_airport,order=c(2,0,1),seasonal = list(order=c(0,1,1),period=12))
+confint(fit2.1.1)
+checkresiduals(fit2.1.1)  #독립성 x
+fit2.1.2 <- Arima(log_airport,order=c(3,0,0),seasonal = list(order=c(0,1,1),period=12))
+confint(fit2.1.2)
+checkresiduals(fit2.1.2)  #일단만족
+
+fit10 <- Arima(log_airport,order=c(1,0,2),seasonal = list(order=c(0,1,1),period=12))
+confint(fit10)
+checkresiduals(fit10)
+
+#(3,0,0)(0,1,1)에 대한 과대적합
+fit2.1.2.1 <- Arima(log_airport,order=c(4,0,0),seasonal = list(order=c(0,1,1),period=12))
+confint(fit2.1.2.1)  #x
+fit2.1.2.2 <- Arima(log_airport,order=c(3,0,1),seasonal = list(order=c(0,1,1),period=12))
+confint(fit2.1.2.2)
+checkresiduals(fit2.1.2.2)  #0
+
+#(3,0,1)(0,1,1)에 대한 과대적합
+confint(Arima(log_airport,order=c(4,0,1),seasonal = list(order=c(0,1,1),period=12)))  #x
+confint(Arima(log_airport,order=c(3,0,2),seasonal = list(order=c(0,1,1),period=12)))  #x
+#ㄲ끄끄
+
+fit2.1.2.2 <- Arima(airport.ts,order=c(3,0,1),seasonal = list(order=c(0,1,1),period=12),lambda=0)
+port17 <- ts(pred,start=2017,freq=12)
+fore_arima <- forecast(fit2.1.2.2,h=12,level=95)
+plot(fore_arima)
+lines(port17,col="red")
+new_t <- seq(2017,by=1/12,length=12)
+lines(new_t,port17,col="red")
+plot(fore_arima,xlim=c(2017,2018),ylim=c(3000000,8000000))
+accuracy(forecast(fit2.1.2.2),pred12)
+
+####################################################################################################
+####################################################################################################
+
+plot(airport.ts,ylab="공항 이용객")
+
+# 분산안정화를 위한 로그 변환.
+lnairport <- log(airport.ts)
+plot(lnairport,ylab="월 매출액")
+
+# 시간(t) 변수 생성 및 변수(D) 생성.
+Time <- time(lnairport)
+Month <- cycle(lnairport)
+
+# 계절추세모형 적합.
+fit7 <- lm(lnairport~Time+factor(Month)+0)          # +0 하는 이유 : 절편 제거.
+
+# 적합 결과 확인.
+summary(fit7)
+
+# 잔차분석.
+checkresiduals(fit7)                    # 2차 추세? 양의 상관관계?     =>     양의 상관관계로 판단.
+
+resid <- ts(fit7$resid,start=2002,freq=12)
+ggtsdisplay(resid)
+acf(resid)
+pacf(resid)
+# 모형 식별 : AR(3) 로 판단.
+fit8 <- arima(resid,order=c(3,0,0), include.mean=FALSE)
+confint(fit8)
+checkresiduals(fit8)
+fit8_1 <- arima(resid,order=c(4,0,0), include.mean=FALSE)
+confint(fit8_1)
+checkresiduals(fit8_1)   # 추가된 모수가 비유의적.
+fit8_2 <- arima(resid,order=c(3,0,1), include.mean=FALSE)
+confint(fit8_2)
+checkresiduals(fit8_2)   # 추가된 모수가 비유의적.
+
+# AR(3) 로 잠정 결정.
+
+# 추세모형(fit1)와 AR(3) 오차모형 : 두 모형의 결합.
+fit_x <- model.matrix(fit7)
+fit9 <- Arima(airport.ts,order=c(3,0,0),xreg=fit_x,include.mean=FALSE,fixed=c(NA,NA,NA,rep(NA,13)),lambda=0)
+confint(fit9)            # 모수의 유의성 검정.
+summary(fit9)
+coef(fit9)
+
+# 잘못됨!!! 독립성이 위반!!!
+# df가 확줄어들음....p-값이 유의적이라고 나옴...
+# 자유도가 너무 작아서 독립 가설을 기각한 것으로 판단.
+checkresiduals(fit9)
+
+#모형 예측.
+new_t <- time(ts(start=c(2017,1),end=c(2017,12),freq=12))
+new_x <- cbind(new_t,diag(rep(1,12)))
+fore_2 <- forecast(fit9,xreg=new_x, level=95)
+accuracy(fore_2)
+plot(fore_2)
+
+airport17 <- scan("C:/Users/user/Desktop/학교수업/시계열분석/조별과제/airport17.txt")
+airport17.ts <- ts(airport17,start=2017,freq=12)
+airport17.ts
+plot(fore_2)
+plot(fore_2,xlim=c(2017,2018),ylim = c(3000000,8000000))
+new<-seq(2017,by=1/12,length=12)
+lines(new,airport17.ts,col="red")
+legend("topleft",c("observed Data","Forecast"),lwd=2,col=c("red","blue"),bty='n')
+accuracy(fore_2,airport17.ts)
