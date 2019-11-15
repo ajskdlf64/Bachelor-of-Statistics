@@ -29,8 +29,7 @@ tost(logCMAX[TRT == levels(TRT)[1]], logCMAX[TRT == levels(TRT)[2]], conf.level 
 
 
 # RTTR
-cross <- read.csv("d:/Lectures/BioStatistics/Data/RTTR.csv", header = T, row.names = NULL)
-
+cross <- read.csv("../RTTR.csv", header = T, row.names = NULL)
 data1 <- data2 <- cross[,1:2]
 data1$AUC <- cross[,3]
 data1$period <- 1
