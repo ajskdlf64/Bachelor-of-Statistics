@@ -16,7 +16,7 @@ ramus = read.csv("./ramus.csv")
 # Matrix로 변환
 ramus = ramus[,-1]
 
-# 공부산 행렬
+# 공분산 행렬
 C = matrix(c(1, -1,  0,  0,
              0,  1, -1,  0,
              0,  0,  1, -1), ncol = 4, byrow = T)

@@ -1,0 +1,128 @@
+# Library
+library(tidyverse)
+
+# 데이터 불러오기
+cust <- read.csv("./01. data/BGCON_CUST_DATA.csv", fileEncoding = "UTF-16")
+cntt <- read.csv("./01. data/BGCON_CNTT_DATA.csv", fileEncoding = "UTF-16")
+claim <- read.csv("./01. data/BGCON_CLAIM_DATA.csv", fileEncoding = "UTF-16")
+
+# 데이터 추출
+train <- cust %>% filter(DIVIDED_SET == 1)
+train <- train %>% select(CUST_ID, SIU_CUST_YN)
+train$SIU_CUST_YN <- factor(ifelse(train$SIU_CUST_YN == "Y", "YES", "NO"))
+
+# DANGER_PERSON
+temp <- cust %>% mutate(DANGER_PERSON = if_else(AGE >= 30 & AGE <60 & OCCP_GRP_1 %in% c("1.주부", "3.사무직"), "YES", "NO")) %>% 
+                 mutate(DANGER_PERSON = as.factor(DANGER_PERSON)) %>% select(CUST_ID, DANGER_PERSON)
+train <- merge(train, temp, key="CUST_ID")
+table(train$SIU_CUST_YN, train$DANGER_PERSON)
+train %>% ggplot(aes(x=SIU_CUST_YN, fill=DANGER_PERSON)) + geom_bar(position = "dodge", show.legend = FALSE) + scale_fill_brewer(palette = "Dark2")
+train %>% ggplot(aes(x=SIU_CUST_YN, fill=DANGER_PERSON)) + geom_bar(position = "fill", show.legend = FALSE) + scale_fill_brewer(palette = "Dark2")
+
+# 계약 건수 대비 청구 건수
+temp <- cntt %>% group_by(CUST_ID) %>% summarise(CONTRACT = n())
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+temp <- claim %>% group_by(CUST_ID) %>% summarise(CLAIM = n())
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train <- train %>% mutate(CLAIM_FOR_CONTRACT = CLAIM / CONTRACT) %>% select(-c(CONTRACT, CLAIM))
+train %>% group_by(SIU_CUST_YN) %>% summarise(MEAN = mean(CLAIM_FOR_CONTRACT))
+train %>% ggplot(aes(x=CLAIM_FOR_CONTRACT)) + geom_histogram(fill="steelblue", bins=30)
+train %>% ggplot(aes(x=log(CLAIM_FOR_CONTRACT))) + geom_histogram(fill="steelblue", bins=30)
+train %>% ggplot(aes(x=log(CLAIM_FOR_CONTRACT), fill=SIU_CUST_YN)) + geom_histogram(bins=30, show.legend = FALSE) + scale_fill_brewer(palette = "Dark2")
+train <- train %>% mutate(LOG_CLAIM_FOR_CONTRACT = log(CLAIM_FOR_CONTRACT)) %>% select(-CLAIM_FOR_CONTRACT)
+train %>% group_by(SIU_CUST_YN) %>% summarise(MEAN = mean(LOG_CLAIM_FOR_CONTRACT))
+
+# 평균 실지급액
+temp <- claim %>% group_by(CUST_ID) %>% summarise(PAYM_AMT_MEAN = mean(PAYM_AMT, na.rm=TRUE))
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train$PAYM_AMT_MEAN[is.na(train$PAYM_AMT_MEAN)] <- 1
+train %>% group_by(SIU_CUST_YN) %>% summarise(MEAN = mean(PAYM_AMT_MEAN))
+train %>% ggplot(aes(x=PAYM_AMT_MEAN)) + geom_histogram(fill="steelblue", bins=50)
+train %>% ggplot(aes(x=log(PAYM_AMT_MEAN))) + geom_histogram(fill="steelblue", bins=50)
+train %>% ggplot(aes(x=log(PAYM_AMT_MEAN), fill=SIU_CUST_YN)) + geom_histogram(bins=50, show.legend = FALSE) + scale_fill_brewer(palette = "Set3")
+train <- train %>% mutate(LOG_PAYM_AMT_MEAN = log(PAYM_AMT_MEAN)) %>% select(-PAYM_AMT_MEAN)
+train$LOG_PAYM_AMT_MEAN[is.infinite(train$LOG_PAYM_AMT_MEAN)] <- 0
+train %>% group_by(SIU_CUST_YN) %>% summarise(MEAN = mean(LOG_PAYM_AMT_MEAN))
+
+# 청구 건수에서 한방병원과 한의원을 카운트
+temp <- claim %>% filter(HOSP_SPEC_DVSN %in% c(80,85)) %>% group_by(CUST_ID) %>% summarise(ORIENTAL_MEDICAL = n())
+train <- merge(train, temp, key="CUST_ID", all.x=TRUE)
+train$ORIENTAL_MEDICAL[is.na(train$ORIENTAL_MEDICAL)] <- 0
+train <- train %>% mutate(LOG_ORIENTAL_MEDICAL = log(ORIENTAL_MEDICAL)) %>% select(-ORIENTAL_MEDICAL)
+train$LOG_ORIENTAL_MEDICAL[is.infinite(train$LOG_ORIENTAL_MEDICAL)] <- 0
+
+# 청구 사유일자와 청구 원사유일자와의 차이(사유 - 원사유)
+temp <- claim %>% select(c(CUST_ID, RESN_DATE, ORIG_RESN_DATE)) %>% mutate(RESN_DATE = as.character(RESN_DATE), ORIG_RESN_DATE = as.character(ORIG_RESN_DATE))
+temp <- temp %>% mutate(RESN_DATE = as.Date(RESN_DATE, "%Y%m%d"), ORIG_RESN_DATE = as.Date(ORIG_RESN_DATE, "%Y%m%d"))
+temp <- temp %>% mutate(RESN_ORIG_RESN = RESN_DATE - ORIG_RESN_DATE) %>% mutate(RESN_ORIG_RESN = as.integer(RESN_ORIG_RESN)) %>% dplyr::select(CUST_ID, RESN_ORIG_RESN)
+temp$RESN_ORIG_RESN[is.na(temp$RESN_ORIG_RESN)] <- 0
+temp <- temp %>% group_by(CUST_ID) %>% summarise(RESN_ORIG_RESN = mean(RESN_ORIG_RESN, na.rm=TRUE)) %>% mutate(RESN_ORIG_RESN = round(RESN_ORIG_RESN, 4))
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train %>% ggplot(aes(x=RESN_ORIG_RESN)) + geom_histogram(fill="steelblue", bins=30)
+train <- train %>% mutate(LOG_RESN_ORIG_RESN = log(RESN_ORIG_RESN)) %>% select(-RESN_ORIG_RESN)
+train$LOG_RESN_ORIG_RESN[is.infinite(train$LOG_RESN_ORIG_RESN)] <- 0
+train %>% filter(SIU_CUST_YN == 'YES') %>% ggplot(aes(x=LOG_RESN_ORIG_RESN)) + geom_histogram(bins=50, show.legend = FALSE, fill="darkgreen")
+train %>% filter(SIU_CUST_YN == 'NO') %>% ggplot(aes(x=LOG_RESN_ORIG_RESN)) + geom_histogram(bins=50, show.legend = FALSE, fill="steelblue")
+
+# 치료기간 : OPTA_DAYS = HOSP_OTPA_ENDT - HOSP_OTPA_STDT + 1 
+temp <- claim %>% select(c(CUST_ID, HOSP_OTPA_ENDT, HOSP_OTPA_STDT)) %>% mutate(HOSP_OTPA_ENDT = as.character(HOSP_OTPA_ENDT), HOSP_OTPA_STDT = as.character(HOSP_OTPA_STDT))
+temp <- temp %>% mutate(HOSP_OTPA_ENDT = as.Date(HOSP_OTPA_ENDT, "%Y%m%d"), HOSP_OTPA_STDT = as.Date(HOSP_OTPA_STDT, "%Y%m%d"))
+temp <- temp %>% mutate(OPTA_DAYS = HOSP_OTPA_ENDT - HOSP_OTPA_STDT + 1) %>% mutate(OPTA_DAYS = as.integer(OPTA_DAYS)) %>% select(CUST_ID, OPTA_DAYS)
+temp$OPTA_DAYS[is.na(temp$OPTA_DAYS)] <- 0
+temp <- temp %>% group_by(CUST_ID) %>% summarise(OPTA_DAYS = mean(OPTA_DAYS, na.rm=TRUE)) %>% mutate(OPTA_DAYS = round(OPTA_DAYS, 4))
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train <- train %>% mutate(LOG_OPTA_DAYS = log(OPTA_DAYS)) %>% select(-OPTA_DAYS)
+train$LOG_OPTA_DAYS[is.infinite(train$LOG_OPTA_DAYS)] <- 0
+train %>% filter(SIU_CUST_YN == 'YES') %>% ggplot(aes(x=LOG_OPTA_DAYS)) + geom_histogram(bins=50, show.legend = FALSE, fill="#FFCC00")
+train %>% filter(SIU_CUST_YN == 'NO') %>% ggplot(aes(x=LOG_OPTA_DAYS)) + geom_histogram(bins=50, show.legend = FALSE, fill="#FF3300")
+
+# 청구 사고구분 : 재해(1) 건수
+temp <- claim %>% filter(ACCI_DVSN == 1) %>% group_by(CUST_ID) %>% summarise(ACCI_DVSN_DISASTER = n())
+train <- merge(train, temp, key="CUST_ID", all.x=TRUE)
+train$ACCI_DVSN_DISASTER[is.na(train$ACCI_DVSN_DISASTER)] <- 0
+
+# 청구 사고구분 : 교통재해(2) 건수
+temp <- claim %>% filter(ACCI_DVSN == 2) %>% group_by(CUST_ID) %>% summarise(ACCI_DVSN_TRAFFIC = n())
+train <- merge(train, temp, key="CUST_ID", all.x=TRUE)
+train$ACCI_DVSN_TRAFFIC[is.na(train$ACCI_DVSN_TRAFFIC)] <- 0
+
+# 청구 사고구분 : 질병(3) 건수
+temp <- claim %>% filter(ACCI_DVSN == 3) %>% group_by(CUST_ID) %>% summarise(ACCI_DVSN_DISEASE = n())
+train <- merge(train, temp, key="CUST_ID", all.x=TRUE)
+train$ACCI_DVSN_DISEASE[is.na(train$ACCI_DVSN_DISEASE)] <- 0
+
+# 평균 유효 입원/통원 일수
+temp <- claim %>% group_by(CUST_ID) %>% summarise(VLID_HOSP_OTDA_MEAN = mean(VLID_HOSP_OTDA, na.rm=TRUE))
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train$VLID_HOSP_OTDA_MEAN[is.na(train$VLID_HOSP_OTDA_MEAN)] <- 0
+train <- train %>% mutate(LOG_VLID_HOSP_OTDA_MEAN = log(VLID_HOSP_OTDA_MEAN)) %>% select(-VLID_HOSP_OTDA_MEAN)
+train$LOG_VLID_HOSP_OTDA_MEAN[is.infinite(train$LOG_VLID_HOSP_OTDA_MEAN)] <- 0
+
+# 평균 진료 과목의 개수
+temp <- claim %>% group_by(CUST_ID) %>% summarise(COUNT_TRMT_ITEM_MEAN = mean(COUNT_TRMT_ITEM, na.rm=TRUE))
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train$COUNT_TRMT_ITEM_MEAN[is.na(train$COUNT_TRMT_ITEM_MEAN)] <- 1
+train <- train %>% mutate(LOG_COUNT_TRMT_ITEM_MEAN = log(COUNT_TRMT_ITEM_MEAN)) %>% select(-COUNT_TRMT_ITEM_MEAN)
+train$LOG_COUNT_TRMT_ITEM_MEAN[is.infinite(train$LOG_COUNT_TRMT_ITEM_MEAN)] <- 0
+
+# 평균 실손 비율
+temp <- claim %>% group_by(CUST_ID) %>% summarise(NON_PAY_RATIO_MEAN = mean(NON_PAY_RATIO, na.rm=TRUE))
+train <- merge(train, temp, key="CUST_ID", all=FALSE)
+train <- train %>% mutate(LOG_NON_PAY_RATIO_MEAN = log(NON_PAY_RATIO_MEAN)) %>% select(-NON_PAY_RATIO_MEAN)
+train$LOG_NON_PAY_RATIO_MEAN[is.infinite(train$LOG_NON_PAY_RATIO_MEAN)] <- 0
+
+# 청구사유코드 입원 빈도
+temp <- claim %>%mutate(DMND_CODE_2 = if_else(DMND_RESN_CODE == 2, 1,0))
+temp <- temp %>% group_by(CUST_ID) %>% summarise(DMND_CODE_2 = sum(DMND_CODE_2))
+train <- merge(train, temp, key="CUST_ID", all.x=TRUE)
+train <- train %>% mutate(LOG_DMND_CODE_2 = log(DMND_CODE_2)) %>% select(-DMND_CODE_2)
+train$LOG_DMND_CODE_2[is.infinite(train$LOG_DMND_CODE_2)] <- 0
+
+# SMOTE
+library(DMwR)
+newData <- SMOTE(SIU_CUST_YN ~ ., train, perc.over = 2500, perc.under=50)
+table(newData$SIU_CUST_YN)
+
+# rattle
+library(rattle)
+rattle()
