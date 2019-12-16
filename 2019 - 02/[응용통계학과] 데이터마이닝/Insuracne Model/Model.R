@@ -2,9 +2,9 @@
 library(tidyverse)
 
 # 데이터 불러오기
-cust <- read.csv("./01. data/BGCON_CUST_DATA.csv", fileEncoding = "UTF-16")
-cntt <- read.csv("./01. data/BGCON_CNTT_DATA.csv", fileEncoding = "UTF-16")
-claim <- read.csv("./01. data/BGCON_CLAIM_DATA.csv", fileEncoding = "UTF-16")
+cust <- read.csv("./Data/BGCON_CUST_DATA.csv", fileEncoding = "UTF-16")
+cntt <- read.csv("./Data/BGCON_CNTT_DATA.csv", fileEncoding = "UTF-16")
+claim <- read.csv("./Data/BGCON_CLAIM_DATA.csv", fileEncoding = "UTF-16")
 
 # 데이터 추출
 train <- cust %>% filter(DIVIDED_SET == 1)
@@ -118,11 +118,50 @@ train <- merge(train, temp, key="CUST_ID", all.x=TRUE)
 train <- train %>% mutate(LOG_DMND_CODE_2 = log(DMND_CODE_2)) %>% select(-DMND_CODE_2)
 train$LOG_DMND_CODE_2[is.infinite(train$LOG_DMND_CODE_2)] <- 0
 
-# SMOTE
-library(DMwR)
-newData <- SMOTE(SIU_CUST_YN ~ ., train, perc.over = 2500, perc.under=50)
-table(newData$SIU_CUST_YN)
-
 # rattle
 library(rattle)
 rattle()
+
+# Train Test Split
+set.seed(1234)
+train <- train %>% select(-CUST_ID)
+idx <- sample(1:nrow(train), size=nrow(train)*0.3)
+Train <- train[-idx,]
+Test <- train[idx,]
+
+# Train Table
+table(Train$SIU_CUST_YN)
+
+# SMOTE
+library(DMwR)
+Train_SMOTE <- SMOTE(SIU_CUST_YN ~ ., Train, perc.over = 2500, perc.under=100)
+table(Train_SMOTE$SIU_CUST_YN)
+
+# SMOTE GRAPH
+SMOTE_DF <- data.frame(group=c("Original","Original","SMOTE","SMOTE"), 
+                       label=c("No","Yes", "No", "Yes"),
+                       obs=c(13182,1243,31075,32318))
+SMOTE_DF %>% filter(group == "Original") %>% ggplot(aes(x=label, y=obs, fill=label)) + 
+             geom_bar(stat="identity", position = "dodge2" ,show.legend = F) + scale_fill_brewer(palette = "Dark2")
+SMOTE_DF %>% filter(group == "SMOTE") %>% ggplot(aes(x=label, y=obs, fill=label)) + 
+             geom_bar(stat="identity", position = "dodge2" ,show.legend = F) + scale_fill_brewer(palette = "Dark2")
+
+# Random Forest
+library(randomForest)
+RandomForest <- randomForest(SIU_CUST_YN ~ ., data = Train_SMOTE)
+RandomForest
+
+# Error Matrix
+library(caret)
+y_pred <- predict(RandomForest, Test[2:14])
+y_true <- Test$SIU_CUST_YN
+confusionMatrix(y_true, y_pred)
+
+# Model 비교
+Model <- data.frame(group = c("Logistic Regression", "Decision Tree", "Random Forest", "Random Forest with SMOTE"),
+                    Specificity  = c(0.3608, 0.3590, 0.4344, 0.4986),
+                    F1_SCORE = c(0.4836, 0.4749, 0.5549, 0.5579))
+Model %>% ggplot(aes(x=group, y=Specificity, fill=group)) + geom_bar(stat="identity", show.legend = FALSE) + 
+          scale_fill_brewer(palette = "Dark2") + coord_flip()
+Model %>% ggplot(aes(x=group, y=F1_SCORE, fill=group)) + geom_bar(stat="identity", show.legend = FALSE) + 
+          scale_fill_brewer(palette = "Dark2")
